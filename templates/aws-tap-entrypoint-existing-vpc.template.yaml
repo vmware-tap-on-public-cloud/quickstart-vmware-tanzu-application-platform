@@ -824,6 +824,9 @@ Resources:
         ClusterAutoScaler: Enabled
         MonitoringStack: None
         ALBIngressController: Enabled
+        QSS3BucketName: !Ref QSS3BucketName
+        QSS3BucketRegion: !Ref QSS3BucketRegion
+        QSS3KeyPrefix: !Join ['', [!Ref QSS3KeyPrefix, 'submodules/quickstart-amazon-eks/']]
   TAPLogGroup:
     Type: AWS::Logs::LogGroup
     UpdateReplacePolicy: Retain
