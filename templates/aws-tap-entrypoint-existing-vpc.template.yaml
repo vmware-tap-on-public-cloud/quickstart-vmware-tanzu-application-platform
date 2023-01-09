@@ -2533,6 +2533,7 @@ Resources:
               su - $user -c "$tap_dir/src/tap-main.sh -c runtests iterate"
             else
               echo "Setup TAP Single Cluster..."
+              su - $user -c "$tap_dir/src/tap-main.sh -c prereqs ${EksClusterName}"              
               su - $user -c "$tap_dir/src/tap-main.sh -c install single"
               su - $user -c "$tap_dir/src/tap-main.sh -c installwk single"
               echo "wait till the workload to go through the supply-chain (8mins)"
