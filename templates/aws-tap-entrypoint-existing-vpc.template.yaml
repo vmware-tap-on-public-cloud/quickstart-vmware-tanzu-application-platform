@@ -2504,7 +2504,6 @@ Resources:
             install -o $user -g $user -m 0755 "$tap_dir/downloads/pivnet" /usr/local/bin/pivnet
             echo "Installing tanzu CLI and staging tanzu-cluster-essentials..."
             su - $user -c "$tap_dir/src/install-tools.sh"
-            sleep 120
             echo TanzuNetRelocateImages ${TanzuNetRelocateImages}
             if [[ "${TanzuNetRelocateImages}" == "Yes" ]]
             then
@@ -2516,9 +2515,13 @@ Resources:
             if [[ "${ClusterArch}" == "multi" ]]
             then
               echo "Setup TAP Multiple Clusters..."
+              su - $user -c "$tap_dir/src/tap-main.sh -c prereqs ${EksClusterName}-view"
               su - $user -c "$tap_dir/src/tap-main.sh -c install view"
+              su - $user -c "$tap_dir/src/tap-main.sh -c prereqs ${EksClusterName}-run"
               su - $user -c "$tap_dir/src/tap-main.sh -c install run"
+              su - $user -c "$tap_dir/src/tap-main.sh -c prereqs ${EksClusterName}-build"
               su - $user -c "$tap_dir/src/tap-main.sh -c install build"
+              su - $user -c "$tap_dir/src/tap-main.sh -c prereqs ${EksClusterName}-iterate"
               su - $user -c "$tap_dir/src/tap-main.sh -c install iterate"
               su - $user -c "$tap_dir/src/tap-main.sh -c prepview view"
               su - $user -c "$tap_dir/src/tap-main.sh -c installwk iterate"
