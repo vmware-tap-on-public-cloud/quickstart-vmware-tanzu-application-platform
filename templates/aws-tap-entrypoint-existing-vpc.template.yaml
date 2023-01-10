@@ -2305,6 +2305,9 @@ Resources:
             VolumeType: gp2
             Encrypted: true
             DeleteOnTermination: true
+      DependsOn: !Sub
+        - ${EKSClusters}
+        - EKSClusters: !If [CreateMultiCluster, [RUNEKSQSStack, BUILDEKSQSStack, VIEWEKSQSStack, ITERATEEKSQSStack], [EKSQSStack]]
       Tags:
         - Key: Name
           Value: VMwareLinuxBastionInstance
