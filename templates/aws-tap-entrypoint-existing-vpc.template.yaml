@@ -2344,9 +2344,9 @@ Resources:
                 args+=( --reason "[…] $(tail -n5 /var/log/cloud-init-output.log)" )
               }
 
-              /opt/aws/bin/cfn-signal "${!args[@]}"
+              cfn-signal "${!args[@]}" \
+                || echo >&2 'could not run cfn-signal'
             }
-            trap 'cfnSignal $?' ERR
 
             user=ubuntu
             arch=$(dpkg --print-architecture)
@@ -2379,6 +2379,11 @@ Resources:
             unzip ./awscliv2.zip
             ./aws/install
             popd
+
+            echo "Installing aws-cfn-bootstrap tools & setting signal trap"
+            pip3 install https://s3.${AWS::Region}.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
+            trap 'cfnSignal $?' ERR
+
             echo "Installing python dependencies for $user..."
             su - $user -c "mkdir -p /home/$user/.local/bin; source /home/$user/.profile; python3 -m pip install --upgrade pip setuptools wheel yq"
             echo "Updating certificate authority certificates..."
