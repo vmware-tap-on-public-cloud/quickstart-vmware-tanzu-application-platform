@@ -2298,6 +2298,9 @@ Resources:
   # TODO: Implement CloudFormation helper scripts once Ubuntu 22.04 is
   # supported.
     Type: AWS::EC2::Instance
+    CreationPolicy:
+      ResourceSignal:
+        Timeout: PT3H # TODO how long should we wait?
     Properties:
       InstanceType: m5.large
       IamInstanceProfile: !Ref LinuxBastionInstanceProfile
@@ -2328,6 +2331,23 @@ Resources:
           - |
             #!/bin/bash
             set -xe
+
+            cfnSignal() {
+              local args=(
+                --exit-code "$1"
+                --stack "${AWS::StackName}"
+                --resource UbuntuBastion
+                --region "${AWS::Region}"
+              )
+
+              (( $1 != 0 )) && {
+                args+=( --reason "[…] $(tail -n5 /var/log/cloud-init-output.log)" )
+              }
+
+              /opt/aws/bin/cfn-signal "${args[@]}"
+            }
+            trap 'cfnSignal $?' ERR
+
             user=ubuntu
             arch=$(dpkg --print-architecture)
             uname=$(uname -m)
@@ -2551,6 +2571,8 @@ Resources:
               su - $user -c "$tap_dir/src/tap-main.sh -c runtests single"
             fi
             echo "Completed successfully!"
+
+            cfnSignal 0
           - AwsKubectlVersion: !FindInMap [KubernetesVersion, !Ref KubernetesVersion, AwsKubectlVersion]
             ClusterEssentialsBundleRepo: tanzu-cluster-essentials/cluster-essentials-bundle
             ClusterEssentialsBundleFileHash: !FindInMap [ClusterEssentialsBundle, !FindInMap [TAPVersion, !Ref TAPVersion, ClusterEssentialsBundleVersion], FileHash]
