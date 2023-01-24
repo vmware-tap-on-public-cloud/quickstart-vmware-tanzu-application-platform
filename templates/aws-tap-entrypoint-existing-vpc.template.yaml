@@ -2334,7 +2334,7 @@ Resources:
 
             cfnSignal() {
               local args=(
-                --exit-code "$1"
+                --exit-code "${!1}"
                 --stack "${AWS::StackName}"
                 --resource UbuntuBastion
                 --region "${AWS::Region}"
@@ -2344,7 +2344,7 @@ Resources:
                 args+=( --reason "[…] $(tail -n5 /var/log/cloud-init-output.log)" )
               }
 
-              /opt/aws/bin/cfn-signal "${args[@]}"
+              /opt/aws/bin/cfn-signal "${!args[@]}"
             }
             trap 'cfnSignal $?' ERR
 
