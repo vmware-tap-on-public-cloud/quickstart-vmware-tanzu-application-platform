@@ -2333,18 +2333,11 @@ Resources:
             set -xe
 
             cfnSignal() {
-              local args=(
-                --exit-code "${!1}"
-                --stack "${AWS::StackName}"
-                --resource UbuntuBastion
-                --region "${AWS::Region}"
-              )
-
-              (( $1 != 0 )) && {
-                args+=( --reason "[…] $(tail -n5 /var/log/cloud-init-output.log)" )
-              }
-
-              cfn-signal "${!args[@]}" \
+              cfn-signal \
+                --exit-code "${!1:-42}" \
+                --stack "${AWS::StackName}" \
+                --resource UbuntuBastion \
+                --region "${AWS::Region}" \
                 || echo >&2 'could not run cfn-signal'
             }
 
