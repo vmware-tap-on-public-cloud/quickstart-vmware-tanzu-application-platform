@@ -2441,11 +2441,6 @@ Resources:
             mv ./kubectl /usr/local/bin/
             kubectl completion bash > /etc/bash_completion.d/kubectl
             popd
-
-            # TODO: remove triggering a test error here
-            echo >&2 'I am about to trigger an error now ... hold on to your pants!'
-            ( exit 123 ; )
-
             echo "Configuring Docker..."
             getent group docker || groupadd docker
             usermod -aG docker $user
