@@ -2300,7 +2300,7 @@ Resources:
     Type: AWS::EC2::Instance
     CreationPolicy:
       ResourceSignal:
-        Timeout: PT3H # TODO how long should we wait?
+        Timeout: PT1H # TODO how long should we wait?
     Properties:
       InstanceType: m5.large
       IamInstanceProfile: !Ref LinuxBastionInstanceProfile
@@ -2348,6 +2348,8 @@ Resources:
                 || echo >&2 'could not run cfn-signal'
             }
 
+            arch=$(dpkg --print-architecture)
+
             echo "Removing built-in Docker..."
             apt-get -y remove containerd runc
 
@@ -2371,7 +2373,6 @@ Resources:
             trap 'cfnSignal $?' ERR
 
             user=ubuntu
-            arch=$(dpkg --print-architecture)
             uname=$(uname -m)
             tap_dir=/home/$user/tap-setup-scripts
             cat <<EOF >> /etc/environment
