@@ -2298,9 +2298,6 @@ Resources:
   # TODO: Implement CloudFormation helper scripts once Ubuntu 22.04 is
   # supported.
     Type: AWS::EC2::Instance
-    CreationPolicy:
-      ResourceSignal:
-        Timeout: PT1H
     Properties:
       InstanceType: m5.large
       IamInstanceProfile: !Ref LinuxBastionInstanceProfile
@@ -2333,11 +2330,28 @@ Resources:
             set -xe
 
             cfnSignal() {
-              cfn-signal \
-                --exit-code "${!1:-42}" \
-                --stack "${AWS::StackName}" \
-                --resource UbuntuBastion \
-                --region "${AWS::Region}" \
+              local -
+              set +x
+
+              local rc="${!1:-42}"
+              local handleURL="${!2:-${SignalFinishedURL}}"
+              local args=(
+                --region "${AWS::Region}"
+                --exit-code "$rc"
+              )
+
+              if (( rc == 0 )) ; then
+                args+=(
+                  --reason "cloud-init: succeeded"
+                )
+              else
+                args+=(
+                  --reason "cloud-init: failed"
+                  --data "[...] $( tail -n 6 /var/log/cloud-init-output.log )"
+                )
+              fi
+
+              cfn-signal "${!args[@]}" "$handleURL" \
                 || echo >&2 'could not run cfn-signal'
             }
 
@@ -2363,7 +2377,7 @@ Resources:
 
             echo "Installing aws-cfn-bootstrap tools & setting signal trap"
             pip3 install https://s3.${AWS::Region}.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
-            trap 'cfnSignal $?' ERR
+            trap 'cfnSignal $? "${SignalFinishedURL}"' ERR
 
             user=ubuntu
             uname=$(uname -m)
@@ -2575,7 +2589,7 @@ Resources:
             fi
             echo "Completed successfully!"
 
-            cfnSignal 0
+            cfnSignal 0 "${WaitForInstallFinishedHandle}"
           - AwsKubectlVersion: !FindInMap [KubernetesVersion, !Ref KubernetesVersion, AwsKubectlVersion]
             ClusterEssentialsBundleRepo: tanzu-cluster-essentials/cluster-essentials-bundle
             ClusterEssentialsBundleFileHash: !FindInMap [ClusterEssentialsBundle, !FindInMap [TAPVersion, !Ref TAPVersion, ClusterEssentialsBundleVersion], FileHash]
@@ -2598,6 +2612,19 @@ Resources:
             IterateClusterWorkloadArn: !If [CreateMultiCluster, !GetAtt ITERATEWorkloadIamRole.Arn, ""]
             RunClusterName: !If [CreateMultiCluster, !GetAtt RUNEKSQSStack.Outputs.EKSClusterName, ""]
             ViewClusterName: !If [CreateMultiCluster, !GetAtt VIEWEKSQSStack.Outputs.EKSClusterName, ""]
+
+            SignalFinishedURL: !Ref WaitForInstallFinishedHandle
+
+  WaitForInstallFinishedHandle:
+    Type: AWS::CloudFormation::WaitConditionHandle
+  WaitForInstallFinished:
+    Type: AWS::CloudFormation::WaitCondition
+    DependsOn: UbuntuBastion
+    Properties:
+      Count: 1
+      Handle: !Ref "WaitForInstallFinishedHandle"
+      Timeout: "3600" # in seconds
+
   UbuntuBastionEipAssociation:
     Type: AWS::EC2::EIPAssociation
     UpdateReplacePolicy: Delete
