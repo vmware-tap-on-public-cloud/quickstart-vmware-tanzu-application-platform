@@ -2300,7 +2300,7 @@ Resources:
     Type: AWS::EC2::Instance
     CreationPolicy:
       ResourceSignal:
-        Timeout: PT1H # TODO how long should we wait?
+        Timeout: PT1H
     Properties:
       InstanceType: m5.large
       IamInstanceProfile: !Ref LinuxBastionInstanceProfile
