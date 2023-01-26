@@ -2334,7 +2334,7 @@ Resources:
               set +x
 
               local rc="${!1:-42}"
-              local handleURL="${!2:-${SignalFinishedURL}}"
+              local handleURL="${!2:-${SignalCloudInitDoneURL}}"
               local args=(
                 --region "${AWS::Region}"
                 --exit-code "$rc"
@@ -2351,8 +2351,7 @@ Resources:
                 )
               fi
 
-              cfn-signal "${!args[@]}" "$handleURL" \
-                || echo >&2 'could not run cfn-signal'
+              cfn-signal "${!args[@]}" "$handleURL" || echo >&2 'could not run cfn-signal'
             }
 
             arch=$(dpkg --print-architecture)
@@ -2377,7 +2376,9 @@ Resources:
 
             echo "Installing aws-cfn-bootstrap tools & setting signal trap"
             pip3 install https://s3.${AWS::Region}.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
-            trap 'cfnSignal $? "${SignalFinishedURL}"' ERR
+            trap 'cfnSignal $? "${SignalCloudInitDoneURL}"' ERR
+
+            cfnSignal 0 "${SignalCloudInitStartURL}"
 
             user=ubuntu
             uname=$(uname -m)
@@ -2572,24 +2573,34 @@ Resources:
               su - $user -c "$tap_dir/src/tap-main.sh -c install build"
               su - $user -c "$tap_dir/src/tap-main.sh -c install iterate"
               su - $user -c "$tap_dir/src/tap-main.sh -c prepview view"
+              cfnSignal 0 "${SignalTAPInstallURL}"
+
               su - $user -c "$tap_dir/src/tap-main.sh -c installwk iterate"
               su - $user -c "$tap_dir/src/tap-main.sh -c installwk build"
               su - $user -c "$tap_dir/src/tap-main.sh -c installwk run"
               echo "wait till the workload to go through the supply-chain (8mins)"
               sleep 480
+              cfnSignal 0 "${SignalTAPWorkloadURL}"
+
               su - $user -c "$tap_dir/src/tap-main.sh -c runtests run"
               su - $user -c "$tap_dir/src/tap-main.sh -c runtests iterate"
+              cfnSignal 0 "${SignalTAPTestsURL}"
             else
               echo "Setup TAP Single Cluster..."
               su - $user -c "$tap_dir/src/tap-main.sh -c install single"
+              cfnSignal 0 "${SignalTAPInstallURL}"
+
               su - $user -c "$tap_dir/src/tap-main.sh -c installwk single"
               echo "wait till the workload to go through the supply-chain (8mins)"
               sleep 480
+              cfnSignal 0 "${SignalTAPWorkloadURL}"
+
               su - $user -c "$tap_dir/src/tap-main.sh -c runtests single"
+              cfnSignal 0 "${SignalTAPTestsURL}"
             fi
             echo "Completed successfully!"
 
-            cfnSignal 0 "${WaitForInstallFinishedHandle}"
+            cfnSignal 0 "${SignalCloudInitDoneURL}"
           - AwsKubectlVersion: !FindInMap [KubernetesVersion, !Ref KubernetesVersion, AwsKubectlVersion]
             ClusterEssentialsBundleRepo: tanzu-cluster-essentials/cluster-essentials-bundle
             ClusterEssentialsBundleFileHash: !FindInMap [ClusterEssentialsBundle, !FindInMap [TAPVersion, !Ref TAPVersion, ClusterEssentialsBundleVersion], FileHash]
@@ -2613,17 +2624,61 @@ Resources:
             RunClusterName: !If [CreateMultiCluster, !GetAtt RUNEKSQSStack.Outputs.EKSClusterName, ""]
             ViewClusterName: !If [CreateMultiCluster, !GetAtt VIEWEKSQSStack.Outputs.EKSClusterName, ""]
 
-            SignalFinishedURL: !Ref WaitForInstallFinishedHandle
+            SignalCloudInitStartURL: !Ref WaitForCloudInitStartHandle
+            SignalTAPInstallURL:     !Ref WaitForTAPInstallHandle
+            SignalTAPWorkloadURL:    !Ref WaitForTAPWorkloadHandle
+            SignalTAPTestsURL:       !Ref WaitForTAPTestsHandle
+            SignalCloudInitDoneURL:  !Ref WaitForCloudInitDoneHandle
 
-  WaitForInstallFinishedHandle:
+  WaitForCloudInitStartHandle:
     Type: AWS::CloudFormation::WaitConditionHandle
-  WaitForInstallFinished:
+  WaitForCloudInitStart:
     Type: AWS::CloudFormation::WaitCondition
     DependsOn: UbuntuBastion
     Properties:
       Count: 1
-      Handle: !Ref "WaitForInstallFinishedHandle"
-      Timeout: "3600" # in seconds
+      Handle: !Ref "WaitForCloudInitStartHandle"
+      Timeout: "600" # should happen max. 10mins after creating the instance
+
+  WaitForTAPInstallHandle:
+    Type: AWS::CloudFormation::WaitConditionHandle
+  WaitForTAPInstall:
+    Type: AWS::CloudFormation::WaitCondition
+    DependsOn: WaitForCloudInitStart
+    Properties:
+      Count: 1
+      Handle: !Ref "WaitForTAPInstallHandle"
+      Timeout: "1800" # should happen max. 30mins after cloud-init started
+
+  WaitForTAPWorkloadHandle:
+    Type: AWS::CloudFormation::WaitConditionHandle
+  WaitForTAPWorkload:
+    Type: AWS::CloudFormation::WaitCondition
+    DependsOn: WaitForTAPInstall
+    Properties:
+      Count: 1
+      Handle: !Ref "WaitForTAPWorkloadHandle"
+      Timeout: "1800" # should happen max. 30mins after TAP is installed
+
+  WaitForTAPTestsHandle:
+    Type: AWS::CloudFormation::WaitConditionHandle
+  WaitForTAPTests:
+    Type: AWS::CloudFormation::WaitCondition
+    DependsOn: WaitForTAPWorkload
+    Properties:
+      Count: 1
+      Handle: !Ref "WaitForTAPTestsHandle"
+      Timeout: "600" # should happen max. 10mins after workload/sample-app has been deployed
+
+  WaitForCloudInitDoneHandle:
+    Type: AWS::CloudFormation::WaitConditionHandle
+  WaitForCloudInitDone:
+    Type: AWS::CloudFormation::WaitCondition
+    DependsOn: WaitForTAPTests
+    Properties:
+      Count: 1
+      Handle: !Ref "WaitForCloudInitDoneHandle"
+      Timeout: "300" # should happen max. 5mins after the tests ran
 
   UbuntuBastionEipAssociation:
     Type: AWS::EC2::EIPAssociation
