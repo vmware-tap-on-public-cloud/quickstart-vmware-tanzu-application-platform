@@ -126,6 +126,7 @@ function installTanzuCLI {
   fi
 }
 
+
 function verifyTools {
   banner "echo all tool versions"
 

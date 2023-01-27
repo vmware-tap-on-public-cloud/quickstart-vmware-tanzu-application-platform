@@ -2327,32 +2327,66 @@ Resources:
         Fn::Base64: !Sub
           - |
             #!/bin/bash
-            set -xe
+            set -e
+            set -u
+            set -o pipefail
 
-            cfnSignal() {
-              local -
-              set +x
+            set -x
 
-              local rc="${!1:-42}"
-              local handleURL="${!2:-${SignalCloudInitDoneURL}}"
-              local args=(
-                --region "${AWS::Region}"
-                --exit-code "$rc"
-              )
+            cat <<EOF >> /etc/environment
+            AWS_REGION=${AWS::Region}
+            AWS_DEFAULT_REGION=${AWS::Region}
+            EOF
+            . /etc/environment
+            export AWS_REGION AWS_DEFAULT_REGION
 
-              if (( rc == 0 )) ; then
-                args+=(
-                  --reason "cloud-init: succeeded"
-                )
-              else
-                args+=(
-                  --reason "cloud-init: failed"
-                  --data "[...] $( tail -n 6 /var/log/cloud-init-output.log )"
-                )
-              fi
+            set +x
+              # TODO: we should ensure to
+              #       - only export actually used vars
+              #       - never print/log those, or at least sensitive ones
+              #       - use consistent/proper/clear var names
+              #       - handle multiline/quoted/... vars correctly
+              export AWSAccountID='${AWS::AccountId}'
+              export AwsKubectlVersion='${AwsKubectlVersion}'
+              export BuildClusterBuildServiceArn='${BuildClusterBuildServiceArn}'
+              export BuildClusterName='${BuildClusterName}'
+              export BuildClusterWorkloadArn='${BuildClusterWorkloadArn}'
+              export ClusterArch='${ClusterArch}'
+              export ClusterEssentialsBundleFileHash='${ClusterEssentialsBundleFileHash}'
+              export ClusterEssentialsBundleRepo='${ClusterEssentialsBundleRepo}'
+              export ClusterEssentialsBundleVersion='${ClusterEssentialsBundleVersion}'
+              export DockerCredPassVersion='${DockerCredPassVersion}'
+              export EKSClusterName='${EKSClusterName}'
+              export IterateClusterBuildServiceArn='${IterateClusterBuildServiceArn}'
+              export IterateClusterName='${IterateClusterName}'
+              export IterateClusterWorkloadArn='${IterateClusterWorkloadArn}'
+              export LinuxBastionSshPort='${LinuxBastionSshPort}'
+              export PivNetVersion='${PivNetVersion}'
+              export PrivateHostedZone='${PrivateHostedZone}'
+              export QSS3BucketPath='${QSS3BucketPath}'
+              export RunClusterName='${RunClusterName}'
+              export SampleAppConfig='${SampleAppConfig}'
+              export SampleAppName='${SampleAppName}'
+              export SampleAppNamespace='${SampleAppNamespace}'
+              export TAPBuildServiceRepo_RepositoryUri='${TAPBuildServiceRepo.RepositoryUri}'
+              export TAPClusterEssentialsBundleRepo_RepositoryUri='${TAPClusterEssentialsBundleRepo.RepositoryUri}'
+              export TAPDomainName='${TAPDomainName}'
+              export TAPLogGroup='${TAPLogGroup}'
+              export TAPPackagesRepo_RepositoryUri='${TAPPackagesRepo.RepositoryUri}'
+              export TAPRepo='${TAPRepo}'
+              export TAPVersion='${TAPVersion}'
+              export TAPWorkloadRepo_RepositoryUri='${TAPWorkloadRepo.RepositoryUri}'
+              export TanzuNetRegistryServer='${TanzuNetRegistryServer}'
+              export TanzuNetRelocateImages='${TanzuNetRelocateImages}'
+              export TanzuNetSecretCredentials='${TanzuNetSecretCredentials}'
+              export ViewClusterName='${ViewClusterName}'
 
-              cfn-signal "${!args[@]}" "$handleURL" || echo >&2 'could not run cfn-signal'
-            }
+              # WaitConditionHanldes
+              export CloudInitHandle='${CloudInitHandle}'
+              export TAPInstallHandle='${TAPInstallHandle}'
+              export TAPWorkloadInstallHandle='${TAPWorkloadInstallHandle}'
+              export TAPTestsHandle='${TAPTestsHandle}'
+            set -x
 
             arch=$(dpkg --print-architecture)
 
@@ -2369,168 +2403,81 @@ Resources:
             echo "Updating & upgrading..."
             apt-get -y update
             apt-get -y upgrade
+
             echo "Installing system dependencies..."
-            apt-get -y install amazon-ecr-credential-helper ca-certificates containerd.io curl docker-ce \
-              docker-ce-cli docker-compose-plugin git gnupg gnupg2 jq lsb-release openssl pass perl python3-pip \
-              python3-setuptools sed sudo traceroute unzip uuid-runtime vim wget
+            apt-get -y install \
+              amazon-ecr-credential-helper \
+              ca-certificates \
+              containerd.io \
+              curl \
+              docker-ce \
+              docker-ce-cli \
+              docker-compose-plugin \
+              git \
+              gnupg \
+              gnupg2 \
+              jq \
+              lsb-release \
+              openssl \
+              pass \
+              perl \
+              python3-pip \
+              python3-setuptools \
+              sed \
+              sudo \
+              traceroute \
+              unzip \
+              uuid-runtime \
+              vim \
+              wget
 
-            echo "Installing aws-cfn-bootstrap tools & setting signal trap"
-            pip3 install https://s3.${AWS::Region}.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz
-            trap 'cfnSignal $? "${SignalCloudInitDoneURL}"' ERR
-
-            cfnSignal 0 "${SignalCloudInitStartURL}"
-
-            user=ubuntu
-            uname=$(uname -m)
-            tap_dir=/home/$user/tap-setup-scripts
-            cat <<EOF >> /etc/environment
-            AWS_REGION=${AWS::Region}
-            AWS_DEFAULT_REGION=${AWS::Region}
-            EOF
-            set -a
-            source /etc/environment
-
+            # TODO: use mktemp and a trap to clean up (or use an AMI with AWS CLI preinstalled)
+            # Note: the Ubuntu AMI seems to come with `wget` and `curl` already installed
             echo "Installing aws cli..."
             pushd /tmp
-            wget -O "./awscliv2.zip" "https://awscli.amazonaws.com/awscli-exe-linux-$uname.zip"
+            wget -O "./awscliv2.zip" "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip"
             unzip ./awscliv2.zip
             ./aws/install
             popd
 
-            echo "Installing python dependencies for $user..."
-            su - $user -c "mkdir -p /home/$user/.local/bin; source /home/$user/.profile; python3 -m pip install --upgrade pip setuptools wheel yq"
-            echo "Updating certificate authority certificates..."
-            update-ca-certificates
-            echo "Installing Amazon CloudWatch agent..."
-            mkdir -p /opt/aws/amazon-cloudwatch-agent/etc/
-            cat <<EOF >> /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
-            {
-              "metrics": {
-                "append_dimensions": {
-                  "ImageId": "\${!aws:ImageId}",
-                  "InstanceId": "\${!aws:InstanceId}",
-                  "InstanceType": "\${!aws:InstanceType}"
-                },
-                "metrics_collected": {
-                  "mem": {
-                    "measurement": [
-                      "mem_used_percent"
-                    ]
-                  },
-                  "swap": {
-                    "measurement": [
-                      "swap_used_percent"
-                    ]
-                  }
-                }
-              },
-              "logs": {
-                "logs_collected": {
-                  "files": {
-                    "collect_list": [
-                      {
-                        "file_path": "/var/log/cloud-init-output.log",
-                        "log_group_name": "${TAPLogGroup}",
-                        "log_stream_name": "{instance_id}_/var/log/cloud-init-output.log"
-                      }
-                    ]
-                  }
-                }
-              }
-            }
-            EOF
-            pushd /tmp
-            aws s3 cp --no-progress "s3://amazoncloudwatch-agent-${AWS::Region}/ubuntu/$arch/latest/amazon-cloudwatch-agent.deb" ./amazon-cloudwatch-agent.deb
-            dpkg -i ./amazon-cloudwatch-agent.deb
-            popd
-            /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json -s
-            systemctl enable amazon-cloudwatch-agent.service
-            systemctl start amazon-cloudwatch-agent.service
-            systemctl status amazon-cloudwatch-agent.service
-            echo "Installing kubectl..."
-            pushd /tmp
-            aws s3 cp --no-progress "s3://amazon-eks/${AwsKubectlVersion}/bin/linux/$arch/kubectl" ./kubectl
-            aws s3 cp --no-progress "s3://amazon-eks/${AwsKubectlVersion}/bin/linux/$arch/kubectl.sha256" ./kubectl.sha256
-            openssl sha1 -sha256 ./kubectl
-            chmod 755 ./kubectl
-            mv ./kubectl /usr/local/bin/
-            kubectl completion bash > /etc/bash_completion.d/kubectl
-            popd
-            echo "Configuring Docker..."
-            getent group docker || groupadd docker
-            usermod -aG docker $user
-            mkdir -p /root/.docker
-            su - $user -c "mkdir -p /home/$user/.docker"
-            pushd /tmp
-            curl -fsSL "https://github.com/docker/docker-credential-helpers/releases/download/v${DockerCredPassVersion}/docker-credential-pass-v${DockerCredPassVersion}-$arch.tar.gz" | tar xz -C .
-            mv docker-credential-pass /usr/local/bin/
-            popd
-            cat <<EOF > /root/.docker/config.json
-            {
-              "credHelpers": {
-                "${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com": "ecr-login",
-                "public.ecr.aws": "ecr-login"
-              }
-            }
-            EOF
-            cp /root/.docker/config.json /home/$user/.docker/
-            chown $user:$user /home/$user/.docker/config.json
-            echo "Configuring the SSH listening port..."
-            printf "Port ${LinuxBastionSshPort}\n" > /etc/ssh/sshd_config.d/port.conf
-            systemctl restart sshd.service
-            systemctl status sshd.service
-            echo "Downloading the VMware Tanzu Application Platform Quick Start scripts..."
-            su - $user -c "mkdir -p \"$tap_dir/downloads\" \"$tap_dir/generated\" \"$tap_dir/src/inputs\" \"$tap_dir/src/resources\""
-            pushd "$tap_dir/src"
-            aws s3 cp --no-progress "${QSS3BucketPath}/src/tap-main.sh" ./tap-main.sh
-            chmod +x ./tap-main.sh
-            aws s3 cp --no-progress "${QSS3BucketPath}/src/tap-relocate.sh" ./tap-relocate.sh
-            chmod +x ./tap-relocate.sh
-            aws s3 cp --no-progress "${QSS3BucketPath}/src/install-tools.sh" ./install-tools.sh
-            chmod +x ./install-tools.sh
-            aws s3 cp --no-progress "${QSS3BucketPath}/src/functions.sh" ./functions.sh
-            aws s3 cp --no-progress "${QSS3BucketPath}/src/tmp-init.sh" ./tmp-init.sh
-            chmod +x ./tmp-init.sh
-            popd
+            echo "Installing aws-cfn-bootstrap tools & setting signal trap"
+            pip3 install "https://s3.${!AWS_REGION}.amazonaws.com/cloudformation-examples/aws-cfn-bootstrap-py3-latest.tar.gz"
 
+            # Set and export the cfn trap
+            cfnSignal() {
+              local -
+              set +x
+
+              local rc="${!1:-42}"
+              local handleURL="${!2:-${CloudInitHandle}}"
+              local args=(
+                --region "${!AWS_REGION}"
+                --exit-code "$rc"
+              )
+
+              if (( rc == 0 )) ; then
+                args+=(
+                  --reason "tap-install: succeeded"
+                )
+              else
+                args+=(
+                  --reason "tap-install: failed"
+                  --data "[...] $( tail -n 6 /var/log/cloud-init-output.log )"
+                )
+              fi
+
+              cfn-signal "${!args[@]}" "$handleURL" || echo >&2 'could not run cfn-signal'
+            }
             export -f cfnSignal
-            QSS3BucketPath="${QSS3BucketPath}" \
-              ClusterArch="${ClusterArch}" \
-              BuildClusterBuildServiceArn="${BuildClusterBuildServiceArn}" \
-              BuildClusterWorkloadArn="${BuildClusterWorkloadArn}" \
-              IterateClusterBuildServiceArn="${IterateClusterBuildServiceArn}" \
-              IterateClusterWorkloadArn="${IterateClusterWorkloadArn}" \
-              BuildClusterName="${BuildClusterName}" \
-              RunClusterName="${RunClusterName}" \
-              ViewClusterName="${ViewClusterName}" \
-              IterateClusterName="${IterateClusterName}" \
-              TanzuNetRegistryServer="${TanzuNetRegistryServer}" \
-              TanzuNetRelocateImages="${TanzuNetRelocateImages}" \
-              TanzuNetSecretCredentials="${TanzuNetSecretCredentials}" \
-              ClusterEssentialsBundleRepo="${ClusterEssentialsBundleRepo}" \
-              ClusterEssentialsBundleFileHash="${ClusterEssentialsBundleFileHash}" \
-              ClusterEssentialsBundleVersion="${ClusterEssentialsBundleVersion}" \
-              TAPRepo="${TAPRepo}" \
-              TAPVersion="${TAPVersion}" \
-              EKSClusterName="${EKSClusterName}" \
-              TAPDomainName="${TAPDomainName}" \
-              PrivateHostedZone="${PrivateHostedZone}" \
-              tap_dir="$tap_dir" \
-              TAPPackagesRepo_RepositoryUri="${TAPPackagesRepo.RepositoryUri}" \
-              TAPClusterEssentialsBundleRepo_RepositoryUri="${TAPClusterEssentialsBundleRepo.RepositoryUri}" \
-              TAPBuildServiceRepo_RepositoryUri="${TAPBuildServiceRepo.RepositoryUri}" \
-              SampleAppName="${SampleAppName}" \
-              SampleAppNamespace="${SampleAppNamespace}" \
-              TAPWorkloadRepo_RepositoryUri="${TAPWorkloadRepo.RepositoryUri}" \
-              user="$user" \
-              PivNetVersion="${PivNetVersion}" \
-              SignalTAPInstallURL="${SignalTAPInstallURL}" \
-              SignalTAPWorkloadURL="${SignalTAPWorkloadURL}" \
-              SignalTAPTestsURL="${SignalTAPTestsURL}" \
-              SampleAppConfig="${SampleAppConfig}" \
-              "./$tap_dir/src/tmp-init.sh"
+            trap 'cfnSignal $?' ERR
 
-            cfnSignal 0 "${SignalCloudInitDoneURL}"
+            cInit="${!QSS3BucketPath}/src/cloud-init.sh"
+            echo "kicking off cloud-init from '${!cInit}'"
+            bash -xe <(
+              aws s3 cp --no-progress "${!cInit}" -
+            )
+
+            cfnSignal 0
           - AwsKubectlVersion: !FindInMap [KubernetesVersion, !Ref KubernetesVersion, AwsKubectlVersion]
             ClusterEssentialsBundleRepo: tanzu-cluster-essentials/cluster-essentials-bundle
             ClusterEssentialsBundleFileHash: !FindInMap [ClusterEssentialsBundle, !FindInMap [TAPVersion, !Ref TAPVersion, ClusterEssentialsBundleVersion], FileHash]
@@ -2554,61 +2501,58 @@ Resources:
             RunClusterName: !If [CreateMultiCluster, !GetAtt RUNEKSQSStack.Outputs.EKSClusterName, ""]
             ViewClusterName: !If [CreateMultiCluster, !GetAtt VIEWEKSQSStack.Outputs.EKSClusterName, ""]
 
-            SignalCloudInitStartURL: !Ref WaitForCloudInitStartHandle
-            SignalTAPInstallURL:     !Ref WaitForTAPInstallHandle
-            SignalTAPWorkloadURL:    !Ref WaitForTAPWorkloadHandle
-            SignalTAPTestsURL:       !Ref WaitForTAPTestsHandle
-            SignalCloudInitDoneURL:  !Ref WaitForCloudInitDoneHandle
+            CloudInitHandle:          !Ref PhaseCloudInitHandle
+            TAPInstallHandle:         !Ref PhaseTAPInstallHandle
+            TAPWorkloadInstallHandle: !Ref PhaseTAPWorkloadInstallHandle
+            TAPTestsHandle:           !Ref PhaseTAPTestsHandle
 
-  WaitForCloudInitStartHandle:
+  # Phase for the whole cloud-init process
+  # from the creation of the instance to finished cloud-init run
+  PhaseCloudInitHandle:
     Type: AWS::CloudFormation::WaitConditionHandle
-  WaitForCloudInitStart:
+  PhaseCloudInit:
     Type: AWS::CloudFormation::WaitCondition
     DependsOn: UbuntuBastion
     Properties:
       Count: 1
-      Handle: !Ref "WaitForCloudInitStartHandle"
-      Timeout: "600" # should happen max. 10mins after creating the instance
+      Handle: !Ref "PhaseCloudInitHandle"
+      Timeout: "3600" # 60m
 
-  WaitForTAPInstallHandle:
+  # Phase for TAP install
+  # from the creation of the instance to finished TAP install
+  PhaseTAPInstallHandle:
     Type: AWS::CloudFormation::WaitConditionHandle
-  WaitForTAPInstall:
+  PhaseTAPInstall:
     Type: AWS::CloudFormation::WaitCondition
-    DependsOn: WaitForCloudInitStart
+    DependsOn: UbuntuBastion
     Properties:
       Count: 1
-      Handle: !Ref "WaitForTAPInstallHandle"
-      Timeout: "1800" # should happen max. 30mins after cloud-init started
+      Handle: !Ref "PhaseTAPInstallHandle"
+      Timeout: "1800" # 30m
 
-  WaitForTAPWorkloadHandle:
+  # Phase for TAP workload install
+  # from finished TAP install to finished workload deployment
+  PhaseTAPWorkloadInstallHandle:
     Type: AWS::CloudFormation::WaitConditionHandle
-  WaitForTAPWorkload:
+  PhaseTAPWorkloadInstall:
     Type: AWS::CloudFormation::WaitCondition
-    DependsOn: WaitForTAPInstall
+    DependsOn: PhaseTAPInstall
     Properties:
       Count: 1
-      Handle: !Ref "WaitForTAPWorkloadHandle"
-      Timeout: "1800" # should happen max. 30mins after TAP is installed
+      Handle: !Ref "PhaseTAPWorkloadInstallHandle"
+      Timeout: "1200" # 20min
 
-  WaitForTAPTestsHandle:
+  # Phase for TAP (smoke) tests
+  # from finished TAP workload deployment to finished test runs
+  PhaseTAPTestsHandle:
     Type: AWS::CloudFormation::WaitConditionHandle
-  WaitForTAPTests:
+  PhaseTAPTests:
     Type: AWS::CloudFormation::WaitCondition
-    DependsOn: WaitForTAPWorkload
+    DependsOn: PhaseTAPWorkloadInstall
     Properties:
       Count: 1
-      Handle: !Ref "WaitForTAPTestsHandle"
-      Timeout: "600" # should happen max. 10mins after workload/sample-app has been deployed
-
-  WaitForCloudInitDoneHandle:
-    Type: AWS::CloudFormation::WaitConditionHandle
-  WaitForCloudInitDone:
-    Type: AWS::CloudFormation::WaitCondition
-    DependsOn: WaitForTAPTests
-    Properties:
-      Count: 1
-      Handle: !Ref "WaitForCloudInitDoneHandle"
-      Timeout: "300" # should happen max. 5mins after the tests ran
+      Handle: !Ref "PhaseTAPTestsHandle"
+      Timeout: "600" # 10m
 
   UbuntuBastionEipAssociation:
     Type: AWS::EC2::EIPAssociation
