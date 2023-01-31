@@ -2451,6 +2451,8 @@ Resources:
 
               local rc="${!1:-42}"
               local handleURL="${!2:-${CloudInitHandle}}"
+              local reason="${!3:-tap-install}"
+              local data="${!4:-[...] $(tail -n6 /var/log/cloud-init-output.log)}"
               local args=(
                 --region "${!AWS_REGION}"
                 --exit-code "$rc"
@@ -2458,19 +2460,22 @@ Resources:
 
               if (( rc == 0 )) ; then
                 args+=(
-                  --reason "tap-install: succeeded"
+                  --reason "${!reason}: succeeded"
                 )
               else
                 args+=(
-                  --reason "tap-install: failed"
-                  --data "[...] $( tail -n 6 /var/log/cloud-init-output.log )"
+                  --reason "${!reason}: failed"
+                  --data "${!data}"
                 )
               fi
 
               cfn-signal "${!args[@]}" "$handleURL" || echo >&2 'could not run cfn-signal'
             }
             export -f cfnSignal
-            trap 'cfnSignal $?' ERR
+            # trap 'cfnSignal $?' ERR
+
+            cfnSignal 44 '' 'this is some reason'
+            exit 1
 
             cInit="${!QSS3BucketPath}/src/cloud-init.sh"
             echo "kicking off cloud-init from '${!cInit}'"
