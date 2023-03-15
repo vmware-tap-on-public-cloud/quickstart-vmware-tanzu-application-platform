@@ -2274,7 +2274,7 @@ Resources:
               IterateClusterWorkloadArn: !If [CreateMultiCluster, !GetAtt ITERATEWorkloadIamRole.Arn, ""]
               RunClusterName: !If [CreateMultiCluster, !GetAtt RUNEKSQSStack.Outputs.EKSClusterName, ""]
               ViewClusterName: !If [CreateMultiCluster, !GetAtt VIEWEKSQSStack.Outputs.EKSClusterName, ""]
-
+              EKSClusterName: !FindInMap [EKSClusterNames, Single, Name]
               CloudInitHandle:          !Ref PhaseCloudInitHandle
               TAPInstallHandle:         !Ref PhaseTAPInstallHandle
               TAPWorkloadInstallHandle: !Ref PhaseTAPWorkloadInstallHandle
