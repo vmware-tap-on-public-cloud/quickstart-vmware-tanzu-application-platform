@@ -52,7 +52,6 @@ Metadata:
       - Label:
           default: Amazon EKS configuration
         Parameters:
-          - EKSClusterName
           - NodeInstanceType
           - NodeVolumeSize
           - NumberOfNodes
@@ -86,8 +85,6 @@ Metadata:
         default: Domain name
       TAPClusterArch:
         default: EKS single or multi cluster
-      EKSClusterName:
-        default: EKS cluster name
       NodeInstanceType:
         default: Instance type
       NodeVolumeSize:
@@ -185,16 +182,6 @@ Parameters:
       are supported due to Windows instances not supporting ED25519. For more
       information, refer to Amazon EC2 key pairs and Windows instances
       (https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/ec2-key-pairs.html).
-  EKSClusterName:
-    Type: String
-    Description: Name of the EKS cluster where TAP will be deployed.
-    MinLength: 1
-    MaxLength: 100
-    AllowedPattern: ^[0-9A-Za-z][A-Za-z0-9\-_]*
-    ConstraintDescription: >-
-      Minimum length of 1. Maximum length of 100. Must start with a letter or
-      number.
-    Default: cluster-eks-tap
   NumberOfNodes:
     Type: Number
     Description: Minimum number of nodes to create for the TAP EKS cluster.
@@ -497,6 +484,17 @@ Parameters:
      information, refer to https://aws-quickstart.github.io/option1.html.
     Default: us-east-1
 Mappings:
+  EKSClusterNames:
+    Single:
+      Name: cluster-eks-tap
+    Run:
+      Name: cluster-eks-tap-run
+    View:
+      Name: cluster-eks-tap-view
+    Iterate:
+      Name: cluster-eks-tap-iterate
+    Build:
+      Name: cluster-eks-tap-build
   Versions:
     current:
       TAP: 1.4.2
@@ -805,7 +803,7 @@ Resources:
         NodeInstanceFamily: Standard
         NodeGroupType: Managed
         NodeGroupOS: Amazon Linux 2
-        EKSClusterName: !Ref EKSClusterName
+        EKSClusterName: !FindInMap [ EKSClusterNames, Single, Name ]
         ClusterAutoScaler: Enabled
         LoadBalancerController: Enabled
         PerRegionSharedResources: 'No'
@@ -844,7 +842,7 @@ Resources:
         NodeInstanceFamily: Standard
         NodeGroupType: Managed
         NodeGroupOS: Amazon Linux 2
-        EKSClusterName: !Sub ${EKSClusterName}-run
+        EKSClusterName: !FindInMap [ EKSClusterNames, Run, Name ]
         ClusterAutoScaler: Enabled
         LoadBalancerController: Enabled
         PerRegionSharedResources: 'No'
@@ -882,7 +880,7 @@ Resources:
         NodeInstanceFamily: Standard
         NodeGroupType: Managed
         NodeGroupOS: Amazon Linux 2
-        EKSClusterName: !Sub ${EKSClusterName}-view
+        EKSClusterName: !FindInMap [ EKSClusterNames, View, Name ]
         ClusterAutoScaler: Enabled
         LoadBalancerController: Enabled
         PerRegionSharedResources: 'No'
@@ -920,7 +918,7 @@ Resources:
         NodeInstanceFamily: Standard
         NodeGroupType: Managed
         NodeGroupOS: Amazon Linux 2
-        EKSClusterName: !Sub ${EKSClusterName}-build
+        EKSClusterName: !FindInMap [ EKSClusterNames, Build, Name ]
         ClusterAutoScaler: Enabled
         LoadBalancerController: Enabled
         PerRegionSharedResources: 'No'
@@ -958,7 +956,7 @@ Resources:
         NodeInstanceFamily: Standard
         NodeGroupType: Managed
         NodeGroupOS: Amazon Linux 2
-        EKSClusterName: !Sub ${EKSClusterName}-iterate
+        EKSClusterName: !FindInMap [ EKSClusterNames, Iterate, Name ]
         ClusterAutoScaler: Enabled
         LoadBalancerController: Enabled
         PerRegionSharedResources: 'No'
@@ -1374,11 +1372,21 @@ Resources:
                   - eks:DescribeCluster
                   - eks:DescribeNodegroup
                 Resource:
-                  - !Sub arn:${AWS::Partition}:eks:${AWS::Region}:${AWS::AccountId}:cluster/${EKSClusterName}
-                  - !Sub arn:${AWS::Partition}:eks:${AWS::Region}:${AWS::AccountId}:cluster/${EKSClusterName}-run
-                  - !Sub arn:${AWS::Partition}:eks:${AWS::Region}:${AWS::AccountId}:cluster/${EKSClusterName}-build
-                  - !Sub arn:${AWS::Partition}:eks:${AWS::Region}:${AWS::AccountId}:cluster/${EKSClusterName}-iterate
-                  - !Sub arn:${AWS::Partition}:eks:${AWS::Region}:${AWS::AccountId}:cluster/${EKSClusterName}-view
+                  - !Sub
+                      - arn:${AWS::Partition}:eks:${AWS::Region}:${AWS::AccountId}:cluster/${EKSClusterNameSingle}
+                      - EKSClusterNameSingle: !FindInMap [ EKSClusterNames, Single, Name ]
+                  - !Sub
+                      - arn:${AWS::Partition}:eks:${AWS::Region}:${AWS::AccountId}:cluster/${EKSClusterNameRun}
+                      - EKSClusterNameRun: !FindInMap [ EKSClusterNames, Run, Name ]
+                  - !Sub
+                      - arn:${AWS::Partition}:eks:${AWS::Region}:${AWS::AccountId}:cluster/${EKSClusterNameBuild}
+                      - EKSClusterNameBuild: !FindInMap [ EKSClusterNames, Build, Name ]
+                  - !Sub
+                      - arn:${AWS::Partition}:eks:${AWS::Region}:${AWS::AccountId}:cluster/${EKSClusterNameIterate}
+                      - EKSClusterNameIterate: !FindInMap [ EKSClusterNames, Iterate, Name ]
+                  - !Sub
+                      - arn:${AWS::Partition}:eks:${AWS::Region}:${AWS::AccountId}:cluster/${EKSClusterNameView}
+                      - EKSClusterNameView: !FindInMap [ EKSClusterNames, View, Name ]
               - Sid: DescribeEksAddons
                 Effect: Allow
                 Action:
