@@ -486,15 +486,15 @@ Parameters:
 Mappings:
   EKSClusterNames:
     Single:
-      Name: cluster-eks-tap
+      Name: !Join ['-', ['cluster-eks-tap', !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
     Run:
-      Name: cluster-eks-tap-run
+      Name: !Join ['-', ['cluster-eks-tap-run', !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
     View:
-      Name: cluster-eks-tap-view
+      Name: !Join ['-', ['cluster-eks-tap-view', !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
     Iterate:
-      Name: cluster-eks-tap-iterate
+      Name: !Join ['-', ['cluster-eks-tap-iterate', !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
     Build:
-      Name: cluster-eks-tap-build
+      Name: !Join ['-', ['cluster-eks-tap-build', !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
   Versions:
     current:
       TAP: 1.4.2
