@@ -484,17 +484,6 @@ Parameters:
      information, refer to https://aws-quickstart.github.io/option1.html.
     Default: us-east-1
 Mappings:
-  EKSClusterNames:
-    Single:
-      Name: cluster-eks-tap
-    Run:
-      Name: cluster-eks-tap-run
-    View:
-      Name: cluster-eks-tap-view
-    Iterate:
-      Name: cluster-eks-tap-iterate
-    Build:
-      Name: cluster-eks-tap-build
   Versions:
     current:
       TAP: 1.4.2
@@ -803,7 +792,7 @@ Resources:
         NodeInstanceFamily: Standard
         NodeGroupType: Managed
         NodeGroupOS: Amazon Linux 2
-        EKSClusterName: !Join ['-', [!FindInMap [ EKSClusterNames, Single, Name ], !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
+        EKSClusterName: !Join ['-', ['tap', !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
         ClusterAutoScaler: Enabled
         LoadBalancerController: Enabled
         PerRegionSharedResources: 'No'
@@ -842,7 +831,7 @@ Resources:
         NodeInstanceFamily: Standard
         NodeGroupType: Managed
         NodeGroupOS: Amazon Linux 2
-        EKSClusterName: !Join ['-', [!FindInMap [ EKSClusterNames, Run, Name ], !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
+        EKSClusterName: !Join ['-', ['tap-run', !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
         ClusterAutoScaler: Enabled
         LoadBalancerController: Enabled
         PerRegionSharedResources: 'No'
@@ -880,7 +869,7 @@ Resources:
         NodeInstanceFamily: Standard
         NodeGroupType: Managed
         NodeGroupOS: Amazon Linux 2
-        EKSClusterName: !Join ['-', [!FindInMap [ EKSClusterNames, View, Name ], !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
+        EKSClusterName: !Join ['-', ['tap-view', !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
         ClusterAutoScaler: Enabled
         LoadBalancerController: Enabled
         PerRegionSharedResources: 'No'
@@ -918,7 +907,7 @@ Resources:
         NodeInstanceFamily: Standard
         NodeGroupType: Managed
         NodeGroupOS: Amazon Linux 2
-        EKSClusterName: !Join ['-', [!FindInMap [ EKSClusterNames, Build, Name ], !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
+        EKSClusterName: !Join ['-', ['tap-build', !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
         ClusterAutoScaler: Enabled
         LoadBalancerController: Enabled
         PerRegionSharedResources: 'No'
@@ -956,7 +945,7 @@ Resources:
         NodeInstanceFamily: Standard
         NodeGroupType: Managed
         NodeGroupOS: Amazon Linux 2
-        EKSClusterName: !Join ['-', [!FindInMap [ EKSClusterNames, Iterate, Name ], !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
+        EKSClusterName: !Join ['-', ['tap-iterate', !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
         ClusterAutoScaler: Enabled
         LoadBalancerController: Enabled
         PerRegionSharedResources: 'No'
@@ -1374,19 +1363,19 @@ Resources:
                 Resource:
                   - !Sub
                       - arn:${AWS::Partition}:eks:${AWS::Region}:${AWS::AccountId}:cluster/${EKSClusterNameSingle}
-                      - EKSClusterNameSingle: !Join ['-', [!FindInMap [ EKSClusterNames, Single, Name ], !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
+                      - EKSClusterNameSingle: !Join ['-', ['tap', !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
                   - !Sub
                       - arn:${AWS::Partition}:eks:${AWS::Region}:${AWS::AccountId}:cluster/${EKSClusterNameRun}
-                      - EKSClusterNameRun: !Join ['-', [!FindInMap [ EKSClusterNames, Run, Name ], !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
+                      - EKSClusterNameRun: !Join ['-', ['tap-run', !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
                   - !Sub
                       - arn:${AWS::Partition}:eks:${AWS::Region}:${AWS::AccountId}:cluster/${EKSClusterNameBuild}
-                      - EKSClusterNameBuild: !Join ['-', [!FindInMap [ EKSClusterNames, Build, Name ], !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
+                      - EKSClusterNameBuild: !Join ['-', ['tap-build', !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
                   - !Sub
                       - arn:${AWS::Partition}:eks:${AWS::Region}:${AWS::AccountId}:cluster/${EKSClusterNameIterate}
-                      - EKSClusterNameIterate: !Join ['-', [!FindInMap [ EKSClusterNames, Iterate, Name ], !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
+                      - EKSClusterNameIterate: !Join ['-', ['tap-iterate', !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
                   - !Sub
                       - arn:${AWS::Partition}:eks:${AWS::Region}:${AWS::AccountId}:cluster/${EKSClusterNameView}
-                      - EKSClusterNameView: !Join ['-', [!FindInMap [ EKSClusterNames, View, Name ], !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
+                      - EKSClusterNameView: !Join ['-', ['tap-view', !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
               - Sid: DescribeEksAddons
                 Effect: Allow
                 Action:
@@ -2274,7 +2263,7 @@ Resources:
               IterateClusterWorkloadArn: !If [CreateMultiCluster, !GetAtt ITERATEWorkloadIamRole.Arn, ""]
               RunClusterName: !If [CreateMultiCluster, !GetAtt RUNEKSQSStack.Outputs.EKSClusterName, ""]
               ViewClusterName: !If [CreateMultiCluster, !GetAtt VIEWEKSQSStack.Outputs.EKSClusterName, ""]
-              EKSClusterName: !Join ['-', [!FindInMap [ EKSClusterNames, Single, Name ], !Select [4, !Split ['-', !Select [2, !Split ['/', !Ref AWS::StackId]]]]]]
+              EKSClusterName: !If [CreateSingleCluster, !GetAtt EKSQSStack.Outputs.EKSClusterName, ""]
               CloudInitHandle:          !Ref PhaseCloudInitHandle
               TAPInstallHandle:         !Ref PhaseTAPInstallHandle
               TAPWorkloadInstallHandle: !Ref PhaseTAPWorkloadInstallHandle
