@@ -32,6 +32,8 @@ main() {
 
   run::logged 'save images to cache' \
     docker::imageCacheSave "$imageCache" || true
+
+  return $rc
 }
 
 main "$@"
