@@ -6,6 +6,7 @@ docker::loadDockerfileFroms() {
   local dir="${1:-.}"
   local orgImg proxyImg
   local proxy="${DOCKER_HUB_PROXY?}"
+  local repo tag
 
   [[ -v SKIP_LOAD_DOCKERFILE_FROMS ]] && {
     echo >&2 "SKIP_LOAD_DOCKERFILE_FROMS is set, so not pulling Dockerfile FROMs through the proxy"
@@ -13,6 +14,26 @@ docker::loadDockerfileFroms() {
   }
 
   while read orgImg ; do
+    IFS=: read -r repo tag <<< "$orgImg"
+
+    case "$repo" in
+      # first: docker.io images need to be pre-pulled
+      docker.io/*)
+        : # noop
+        ;;
+      # next: if the repo contains a '.' or a '$' these are either:
+      # - fully quilified registries, which don't need to be pulled
+      # - variables / Dockerfile args, which can't be pulled
+      *.*|*\$*)
+        echo >&2 "${orgImg} does not look like an image we need to pull, skipping"
+        continue
+        ;;
+      # last: all the rest (e.g. nginx:1.2.3) is also from dockerhub, so try to pre-pull those too
+      *)
+        : # noop
+        ;;
+    esac
+
     if grep -q '/' <<< "$orgImg"
     then
       proxyImg="${proxy}/${orgImg}"
