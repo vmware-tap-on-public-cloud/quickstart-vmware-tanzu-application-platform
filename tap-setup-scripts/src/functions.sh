@@ -502,11 +502,21 @@ function tapInstallFull {
 
   ensurePackageOverlays "$TAP_VERSION" "$TAP_NAMESPACE" "$RESOURCES" "${GENERATED}/${TAP_VALUES_FILE}"
 
+  local installArgs=(
+    --package tap.tanzu.vmware.com
+    --version "${TAP_VERSION}"
+    --values-file "${GENERATED}/${TAP_VALUES_FILE}"
+    --namespace "${TAP_NAMESPACE}"
+    --ytt-overlay-file "${RESOURCES}/tap-overlay.yaml"
+  )
+
   if [[ -z $first_time ]]
   then
-    tanzu package install $TAP_PACKAGE_NAME -p tap.tanzu.vmware.com -v $TAP_VERSION --values-file $GENERATED/$TAP_VALUES_FILE -n $TAP_NAMESPACE || true
+    tanzu package install "${TAP_PACKAGE_NAME}" "${installArgs[@]}" \
+      || true
   else
-    tanzu package installed update $TAP_PACKAGE_NAME -p tap.tanzu.vmware.com -v $TAP_VERSION --values-file $GENERATED/$TAP_VALUES_FILE -n $TAP_NAMESPACE || true
+    tanzu package installed update "${TAP_PACKAGE_NAME}" "${installArgs[@]}" \
+      || true
   fi
 
   banner "Checking state of all packages"

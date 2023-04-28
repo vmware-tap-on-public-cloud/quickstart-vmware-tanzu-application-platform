@@ -1,0 +1,25 @@
+#! For TAP 1.5.0 we see the following issue:
+#!
+#! ```
+#!             | 1:18:06PM: ongoing: reconcile packageinstall/contour (packaging.carvel.dev/v1alpha1) namespace: tap-install
+#!             | 1:18:06PM:  ^ Reconciling
+#! 1:18:09PM: Deploy failed
+#!             | kapp: Error: waiting on reconcile packageinstall/api-portal (packaging.carvel.dev/v1alpha1) namespace: tap-install:
+#!             |   Finished unsuccessfully (Reconcile failed:  (message: kapp: Error: Expected to find kind 'projectcontour.io/v1/HTTPProxy', but did not:
+#!             | - Kubernetes API server did not have matching apiVersion + kind
+#!             | - No matching CRD was found in given configuration))
+#!             | Deploying: Error (see .status.usefulErrorMessage for details)
+#! 1:18:09PM: Error tailing app: Reconciling app: Deploy failed
+#! ```
+#!
+#! This seems to be fixed in TAP 1.5.1, so we can remove that when we upgrade
+
+#@ load("@ytt:overlay", "overlay")
+
+#@overlay/match by=overlay.subset({"kind":"PackageInstall","metadata":{"name":"api-portal"}}), expects="0+"
+---
+metadata:
+  #@overlay/match missing_ok=True
+  annotations:
+    #@overlay/match missing_ok=True
+    kapp.k14s.io/change-rule.contour: "upsert after upserting contour"
