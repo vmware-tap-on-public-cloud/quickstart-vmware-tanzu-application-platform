@@ -435,22 +435,36 @@ function loadPackageRepository {
     echo "Changed TAP_REGISTRY_REPOSITORY to ECR Repository"
     TAP_REGISTRY_REPOSITORY=$TAP_ECR_REGISTRY_REPOSITORY
   fi
-  banner "Removing any current TAP package repository"
 
-  tanzu package repository delete tanzu-tap-repository -n $TAP_NAMESPACE --yes || true
-  waitForRemoval tanzu package repository get tanzu-tap-repository -n $TAP_NAMESPACE -o json
 
-  banner "Adding TAP package repository"
+  # TODO(horlh): Remove once the source-controller is fixed (> 0.7.0)
 
-  tanzu package repository add tanzu-tap-repository \
-      --url $TAP_REGISTRY_REPOSITORY:$TAP_VERSION \
-      --namespace $TAP_NAMESPACE
-  tanzu package repository get tanzu-tap-repository --namespace $TAP_NAMESPACE
-  while [[ $(tanzu package available list --namespace $TAP_NAMESPACE -o json) == '[]' ]]
-  do
-    message "Waiting for packages..."
-    sleep 5
-  done
+  kubectl -n "$TAP_NAMESPACE" apply -f - <<EOF
+apiVersion: packaging.carvel.dev/v1alpha1
+kind: PackageRepository
+metadata:
+  name: tanzu-tap-repository
+spec:
+  fetch:
+    imgpkgBundle:
+      image: ${TAP_REGISTRY_REPOSITORY}:${TAP_VERSION}
+---
+apiVersion: packaging.carvel.dev/v1alpha1
+kind: PackageRepository
+metadata:
+  name: tanzu-tap-repository-1.4.3
+spec:
+  fetch:
+    imgpkgBundle:
+      image: ${TAP_REGISTRY_REPOSITORY}:1.4.3
+EOF
+
+  sleep 3s
+
+  kubectl -n "$TAP_NAMESPACE" wait PackageRepository/tanzu-tap-repository --for=condition=ReconcileSucceeded=true
+  kubectl -n "$TAP_NAMESPACE" wait PackageRepository/tanzu-tap-repository-1.4.3 --for=condition=ReconcileSucceeded=true
+
+  echo 'TAP repository updated & reconciled'
 }
 
 function createTapRegistrySecret {
@@ -594,6 +608,8 @@ function deletePackageRepository {
   banner "Removing current TAP package repository"
 
   tanzu package repository delete tanzu-tap-repository -n $TAP_NAMESPACE --yes || true
+  # TODO(horlh): Remove once the source-controller is fixed (> 0.7.0)
+  tanzu package repository delete tanzu-tap-repository-1.4.3 -n $TAP_NAMESPACE --yes || true
 }
 
 function deleteTanzuClusterEssentials {
@@ -619,7 +635,8 @@ function relocateTAPPackages {
 
   requireValue TANZUNET_REGISTRY_USERNAME TANZUNET_REGISTRY_PASSWORD TANZUNET_REGISTRY_SERVER \
     ESSENTIALS_URI ESSENTIALS_ECR_REGISTRY_REPOSITORY \
-    TAP_URI TAP_ECR_REGISTRY_REPOSITORY
+    TAP_URI TAP_ECR_REGISTRY_REPOSITORY \
+    TAP_REPOSITORY
 
   banner "Relocating images, this will take time in minutes (30-45min)..."
 
@@ -637,6 +654,9 @@ function relocateTAPPackages {
   echo "Relocating TAP packages"
   imgpkg copy --concurrency 1 -b ${TAP_URI} --to-repo ${TAP_ECR_REGISTRY_REPOSITORY}
   echo "Ignore the non-distributable skipped layer warning- non-issue"
+
+  # TODO(horlh): Remove once the source-controller is fixed (> 0.7.0)
+  imgpkg copy --concurrency 1 -b ${TAP_REPOSITORY}:1.4.3 --to-repo ${TAP_ECR_REGISTRY_REPOSITORY}
 }
 
 function createRoute53Record {

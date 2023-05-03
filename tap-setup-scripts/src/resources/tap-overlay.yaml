@@ -1,3 +1,8 @@
+#@ load("@ytt:overlay", "overlay")
+
+#! ------------------------------------------------------------
+#! ------------------------------------------------------------
+#!
 #! For TAP 1.5.0 we see the following issue:
 #!
 #! ```
@@ -13,8 +18,8 @@
 #! ```
 #!
 #! This seems to be fixed in TAP 1.5.1, so we can remove that when we upgrade
-
-#@ load("@ytt:overlay", "overlay")
+#!
+#! TODO(horlh): Remove once we switch to TAP 1.5.1
 
 #@overlay/match by=overlay.subset({"kind":"PackageInstall","metadata":{"name":"api-portal"}}), expects="0+"
 ---
@@ -23,3 +28,22 @@ metadata:
   annotations:
     #@overlay/match missing_ok=True
     kapp.k14s.io/change-rule.contour: "upsert after upserting contour"
+
+
+#! ------------------------------------------------------------
+#! ------------------------------------------------------------
+#!
+#! For source-controller 0.7.0 there seems to be an issue with ECR auth, so we
+#! downgrade for now until we get a version of TAP 1.5.x that has a fixed version
+#! of the source-controller
+#!
+#! TODO(horlh): Remove once the source-controller 0.7.0 is fixed
+
+#@overlay/match by=overlay.subset({"kind":"PackageInstall","metadata":{"name":"source-controller"}})
+---
+spec:
+  packageRef:
+    refName: controller.source.apps.tanzu.vmware.com
+    versionSelection:
+      #! This is the version from TAP 1.4.3
+      constraints: 0.6.3
