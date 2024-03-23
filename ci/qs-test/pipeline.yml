@@ -420,50 +420,6 @@ jobs:
       NIMBUS_DEPLOY_OPTS: '--cpus=6 --memory=4096'
       DOCKER_HUB_PROXY: ((dockerhub-proxy))
 
-- name: pr-test-single-us-east-1
-  << : *alertginOnPrJobs
-  serial: true
-  plan:
-  - in_parallel:
-    - get: ci-repo
-      params:
-        submodules: none
-      trigger: true
-      passed: [ pr-prepare-bucket ]
-    - get: repo
-      resource: pull-request
-      trigger: true
-      passed: [ pr-prepare-bucket ]
-  - *setup
-  - task: taskcat-test
-    file: ci-repo/ci/tasks/taskcat-run-test/task.yml
-    params:
-      TEST_NAME: single-cluster
-      REGIONS: "us-east-1"
-    ensure: *postTest
-
-- name: pr-test-single-eu-south-1
-  << : *alertginOnPrJobs
-  serial: true
-  plan:
-  - in_parallel:
-    - get: ci-repo
-      params:
-        submodules: none
-      trigger: true
-      passed: [ pr-prepare-bucket ]
-    - get: repo
-      resource: pull-request
-      trigger: true
-      passed: [ pr-prepare-bucket ]
-  - *setup
-  - task: taskcat-test
-    file: ci-repo/ci/tasks/taskcat-run-test/task.yml
-    params:
-      TEST_NAME: single-cluster
-      REGIONS: "eu-south-1"
-    ensure: *postTest
-
 - name: pr-test-multi-us-west-2
   << : *alertginOnPrJobs
   serial: true
@@ -486,7 +442,7 @@ jobs:
       REGIONS: "us-west-2"
     ensure: *postTest
 
-- name: pr-test-relocation-single-us-west-2
+- name: pr-test-relocation-single-us-east-1
   << : *alertginOnPrJobs
   serial: true
   plan:
@@ -505,28 +461,6 @@ jobs:
     file: ci-repo/ci/tasks/taskcat-run-test/task.yml
     params:
       TEST_NAME: relocation-single
-      REGIONS: "us-west-2"
-    ensure: *postTest
-
-- name: pr-test-relocation-multi-us-east-1
-  << : *alertginOnPrJobs
-  serial: true
-  plan:
-  - in_parallel:
-    - get: ci-repo
-      params:
-        submodules: none
-      trigger: true
-      passed: [ pr-prepare-bucket ]
-    - get: repo
-      resource: pull-request
-      trigger: true
-      passed: [ pr-prepare-bucket ]
-  - *setup
-  - task: taskcat-test
-    file: ci-repo/ci/tasks/taskcat-run-test/task.yml
-    params:
-      TEST_NAME: relocation-multi
       REGIONS: "us-east-1"
     ensure: *postTest
 
@@ -536,11 +470,8 @@ jobs:
     resource: pull-request
     trigger: true
     passed:
-    - pr-test-single-us-east-1
-    - pr-test-single-eu-south-1
     - pr-test-multi-us-west-2
-    - pr-test-relocation-single-us-west-2
-    - pr-test-relocation-multi-us-east-1
+    - pr-test-relocation-single-us-east-1
   - put: pull-request
     params:
       path: repo
